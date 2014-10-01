@@ -5,7 +5,7 @@ ifeq ($(TARGET_POWERHAL_VARIANT),qcom)
 USE_ME := true
 endif
 
-ifneq (,$(filter true,$(USE_ME) $(WITH_QC_PERF)))
+ifneq (,$(filter true,$(USE_ME) $(TARGET_HAVE_QC_PERF)))
 
 # HAL module implemenation stored in
 # hw/<POWERS_HARDWARE_MODULE_ID>.<ro.hardware>.so
