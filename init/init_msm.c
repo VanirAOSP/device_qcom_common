@@ -176,6 +176,9 @@ void set_display_node_perms()
                 snprintf(tmp, sizeof(tmp), "%sfb%d/hpd", sys_fb_path, num);
                 setPerms(tmp, 0664);
                 setOwners(tmp, AID_SYSTEM, AID_GRAPHICS);
+                snprintf(tmp, sizeof(tmp), "%sfb%d/res_info", sys_fb_path, num);
+                setPerms(tmp, 0664);
+                setOwners(tmp, AID_SYSTEM, AID_GRAPHICS);
                 snprintf(tmp, sizeof(tmp), "%sfb%d/vendor_name", sys_fb_path,
                              num);
                 setPerms(tmp, 0664);
@@ -191,8 +194,27 @@ void set_display_node_perms()
                             num);
                 setPerms(tmp, 0664);
                 setOwners(tmp, AID_SYSTEM, AID_SYSTEM);
+                snprintf(tmp, sizeof(tmp), "%sfb%d/s3d_mode", sys_fb_path,
+                            num);
+                setPerms(tmp, 0664);
+                setOwners(tmp, AID_SYSTEM, AID_SYSTEM);
                 snprintf(tmp, sizeof(tmp), "%sfb%d/hdcp/tp", sys_fb_path, num);
                 setPerms(tmp, 0664);
+                setOwners(tmp, AID_SYSTEM, AID_SYSTEM);
+                snprintf(tmp, sizeof(tmp), "%sfb%d/cec/enable", sys_fb_path, num);
+                setPerms(tmp, 0664);
+                setOwners(tmp, AID_SYSTEM, AID_SYSTEM);
+                snprintf(tmp, sizeof(tmp), "%sfb%d/cec/logical_addr", sys_fb_path, num);
+                setPerms(tmp, 0664);
+                setOwners(tmp, AID_SYSTEM, AID_SYSTEM);
+                snprintf(tmp, sizeof(tmp), "%sfb%d/cec/rd_msg", sys_fb_path, num);
+                setPerms(tmp, 0664);
+                setOwners(tmp, AID_SYSTEM, AID_SYSTEM);
+                snprintf(tmp, sizeof(tmp), "%sfb%d/pa", sys_fb_path, num);
+                setPerms(tmp, 0664);
+                setOwners(tmp, AID_SYSTEM, AID_SYSTEM);
+                snprintf(tmp, sizeof(tmp), "%sfb%d/cec/wr_msg", sys_fb_path, num);
+                setPerms(tmp, 0600);
                 setOwners(tmp, AID_SYSTEM, AID_SYSTEM);
                 snprintf(tmp, sizeof(tmp), "%sfb%d", dev_fb_path, num);
                 symlink(tmp, DEV_GFX_HDMI);
@@ -210,6 +232,14 @@ void set_display_node_perms()
     setOwners(tmp, AID_SYSTEM, AID_GRAPHICS);
     // Set permissions for dynamic partial update
     snprintf(tmp, sizeof(tmp), "%sfb0/dyn_pu", sys_fb_path);
+    setPerms(tmp, 0664);
+    setOwners(tmp, AID_SYSTEM, AID_GRAPHICS);
+
+    snprintf(tmp, sizeof(tmp), "%sfb0/modes", sys_fb_path);
+    setPerms(tmp, 0664);
+    setOwners(tmp, AID_SYSTEM, AID_GRAPHICS);
+
+    snprintf(tmp, sizeof(tmp), "%sfb0/mode", sys_fb_path);
     setPerms(tmp, 0664);
     setOwners(tmp, AID_SYSTEM, AID_GRAPHICS);
 }
