@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -118,77 +118,6 @@ static void set_power_profile(int profile) {
     current_power_profile = profile;
 }
 
-static int process_cam_preview_hint(void *metadata)
-{
-    char governor[80];
-    struct cam_preview_metadata_t cam_preview_metadata;
-
-    if (get_scaling_governor(governor, sizeof(governor)) == -1) {
-        ALOGE("Can't obtain scaling governor.");
-
-        return HINT_NONE;
-    }
-
-    /* Initialize encode metadata struct fields */
-    memset(&cam_preview_metadata, 0, sizeof(struct cam_preview_metadata_t));
-    cam_preview_metadata.state = -1;
-    cam_preview_metadata.hint_id = CAM_PREVIEW_HINT_ID;
-
-    if (metadata) {
-        if (parse_cam_preview_metadata((char *)metadata, &cam_preview_metadata) ==
-            -1) {
-            ALOGE("Error occurred while parsing metadata.");
-            return HINT_NONE;
-        }
-    } else {
-        return HINT_NONE;
-    }
-
-    if (cam_preview_metadata.state == 1) {
-        if ((strncmp(governor, INTERACTIVE_GOVERNOR, strlen(INTERACTIVE_GOVERNOR)) == 0) &&
-                (strlen(governor) == strlen(INTERACTIVE_GOVERNOR))) {
-            /* sched and cpufreq params
-             * above_hispeed_delay for LVT - 40ms
-             * go hispeed load for LVT - 95
-             * hispeed freq for LVT - 556 MHz
-             * target load for LVT - 90
-             * above hispeed delay for sLVT - 40ms
-             * go hispeed load for sLVT - 95
-             * hispeed freq for sLVT - 556 MHz
-             * target load for sLVT - 90
-             * bus DCVS set to V2 config:
-             *  low power ceil mpbs - 2500
-             *  low power io percent - 50
-             */
-            int resource_values[] = {
-                ABOVE_HISPEED_DELAY_BIG, 0x4,
-                GO_HISPEED_LOAD_BIG, 0x5F,
-                HISPEED_FREQ_BIG, 0x22C,
-                TARGET_LOADS_BIG, 0x5A,
-                ABOVE_HISPEED_DELAY_LITTLE, 0x4,
-                GO_HISPEED_LOAD_LITTLE, 0x5F,
-                HISPEED_FREQ_LITTLE, 0x22C,
-                TARGET_LOADS_LITTLE, 0x5A,
-                LOW_POWER_CEIL_MBPS, 0x9C4,
-                LOW_POWER_IO_PERCENT, 0x32,
-            };
-
-            perform_hint_action(cam_preview_metadata.hint_id,
-                    resource_values, ARRAY_SIZE(resource_values));
-            ALOGI("Cam Preview hint start");
-            return HINT_HANDLED;
-        }
-    } else if (cam_preview_metadata.state == 0) {
-        if ((strncmp(governor, INTERACTIVE_GOVERNOR, strlen(INTERACTIVE_GOVERNOR)) == 0) &&
-                (strlen(governor) == strlen(INTERACTIVE_GOVERNOR))) {
-            undo_hint_action(cam_preview_metadata.hint_id);
-            ALOGI("Cam Preview hint stop");
-            return HINT_HANDLED;
-        }
-    }
-    return HINT_NONE;
-}
-
 static int process_video_encode_hint(void *metadata)
 {
     char governor[80];
@@ -233,7 +162,6 @@ static int process_video_encode_hint(void *metadata)
              * 3. hysteresis optimization
              *    -bus dcvs hysteresis tuning
              *    -sample_ms of 10 ms
-             *    -disable ignore_hispeed_notif
              */
             int resource_values[] = {
                 ABOVE_HISPEED_DELAY_BIG, 0x4,
@@ -248,8 +176,6 @@ static int process_video_encode_hint(void *metadata)
                 LOW_POWER_IO_PERCENT, 0x32,
                 CPUBW_HWMON_V1, 0x0,
                 CPUBW_HWMON_SAMPLE_MS, 0xA,
-                IGNORE_HISPEED_NOTIF_LITTLE, 0x0,
-                IGNORE_HISPEED_NOTIF_BIG, 0x0,
             };
 
             perform_hint_action(video_encode_metadata.hint_id,
@@ -271,10 +197,9 @@ static int process_video_encode_hint(void *metadata)
 int power_hint_override(__unused struct power_module *module,
         power_hint_t hint, void *data)
 {
-    struct timeval cur_boost_timeval = {0, 0};
-    static unsigned long long previous_boost_time = 0;
-    unsigned long long cur_boost_time;
-    double elapsed_time;
+    static struct timespec s_previous_boost_timespec;
+    struct timespec cur_boost_timespec;
+    long long elapsed_time;
     int duration;
 
     int resources_launch_boost[] = {
@@ -317,9 +242,8 @@ int power_hint_override(__unused struct power_module *module,
     if (hint == POWER_HINT_INTERACTION) {
         duration = data ? *((int *)data) : 500;
 
-        gettimeofday(&cur_boost_timeval, NULL);
-        cur_boost_time = cur_boost_timeval.tv_sec * 1000000 + cur_boost_timeval.tv_usec;
-        elapsed_time = (double) (cur_boost_time - previous_boost_time);
+        clock_gettime(CLOCK_MONOTONIC, &cur_boost_timespec);
+        elapsed_time = calc_timespan_us(s_previous_boost_timespec, cur_boost_timespec);
         if (elapsed_time > 750000)
             elapsed_time = 750000;
         /**
@@ -330,7 +254,7 @@ int power_hint_override(__unused struct power_module *module,
         else if (elapsed_time < 250000 && duration <= 750)
             return HINT_HANDLED;
 
-        previous_boost_time = cur_boost_time;
+        s_previous_boost_timespec = cur_boost_timespec;
 
         if (duration >= 1500) {
             interaction(duration, ARRAY_SIZE(resources_interaction_fling_boost),
@@ -367,9 +291,6 @@ int power_hint_override(__unused struct power_module *module,
             return HINT_HANDLED;
         }
     }
-
-    if (hint == POWER_HINT_CAM_PREVIEW)
-        return process_cam_preview_hint(data);
 
     if (hint == POWER_HINT_VIDEO_ENCODE)
         return process_video_encode_hint(data);
